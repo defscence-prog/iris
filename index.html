@@ -7,6 +7,9 @@
 <title>Mantenimiento - Krispy Kreme</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 :root{
@@ -294,7 +297,10 @@ function baseItems(sid){
 }
 // Cada tienda arranca con su lista base (tareas reales precargadas)
 function defaultState(){ var st={}; STORES.forEach(function(s){ st[s.id]=baseItems(s.id); }); return st; }
-function loadState(){ try{ var v=localStorage.getItem(STATE_KEY); if(v) return JSON.parse(v); }catch(e){} return defaultState(); }
+// Firebase puede borrar arrays vacíos o devolverlos como objetos: normalizamos siempre.
+function toArray(v){ if(Array.isArray(v)) return v; if(v&&typeof v==='object'){ var a=[]; Object.keys(v).forEach(function(k){ a.push(v[k]); }); return a; } return []; }
+function normalizeState(st){ st=st||{}; STORES.forEach(function(s){ st[s.id]=toArray(st[s.id]); }); return st; }
+function loadState(){ try{ var v=localStorage.getItem(STATE_KEY); if(v) return normalizeState(JSON.parse(v)); }catch(e){} return defaultState(); }
 var state=loadState();
 function saveState(){ try{ localStorage.setItem(STATE_KEY,JSON.stringify(state)); }catch(e){} }
 
@@ -380,7 +386,7 @@ function storeAccumulated(sid){
 }
 function globalProgress(){
   var apl=0,real=0,pend=0;
-  STORES.forEach(function(s){ var p=storeProgress(s.id); apl+=p.apl; real+=p.real; pend+=p.pend; });
+  STORES.forEach(function(s){ var p=storeAccumulated(s.id); apl+=p.apl; real+=p.real; pend+=p.pend; });
   return {apl:apl,real:real,pend:pend,pct:apl>0?Math.round(real/apl*100):0};
 }
 function esc(t){ return (''+t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -395,7 +401,7 @@ function renderSidebar(){
   document.getElementById('topPct').textContent=g.pct+'%';
   var c=document.getElementById('sbList'); c.innerHTML='';
   STORES.forEach(function(s){
-    var p=storeProgress(s.id);
+    var p=storeAccumulated(s.id);
     var done=p.apl>0&&p.pend===0;
     var sub= p.apl>0 ? (p.real+'/'+p.apl+' realizadas'+(p.pend?' · '+p.pend+' pend.':'')) : 'Sin actividades';
     var d=document.createElement('div');
@@ -530,7 +536,7 @@ function removeItem(sid,key){
 /* ====================== DASHBOARD ====================== */
 function renderDashboard(){
   var totApl=0,totReal=0,totPend=0,alDia=0;
-  var per=STORES.map(function(s){ var p=storeProgress(s.id); totApl+=p.apl; totReal+=p.real; totPend+=p.pend; if(p.apl>0&&p.pend===0)alDia++; return {id:s.id,name:s.name,p:p}; });
+  var per=STORES.map(function(s){ var p=storeAccumulated(s.id); totApl+=p.apl; totReal+=p.real; totPend+=p.pend; if(p.apl>0&&p.pend===0)alDia++; return {id:s.id,name:s.name,p:p}; });
   var pctGen=totApl>0?Math.round(totReal/totApl*100):0;
   var html='';
   if(totApl===0){
@@ -594,10 +600,10 @@ function drawDashDonut(sid){
   var el=document.getElementById('chDonut'); if(!el) return;
   var real=0,pend=0,na=0,pct=0,titulo='Estado general',centro='REALIZADO';
   if(sid){
-    var p=storeProgress(sid); real=p.real; pend=p.pend; na=p.na; pct=p.pct;
+    var p=storeAccumulated(sid); real=p.real; pend=p.pend; na=p.na; pct=p.pct;
     titulo='Estado de '+storeName(sid); centro=storeName(sid).toUpperCase();
   } else {
-    STORES.forEach(function(s){ var p=storeProgress(s.id); real+=p.real; pend+=p.pend; na+=p.na; });
+    STORES.forEach(function(s){ var p=storeAccumulated(s.id); real+=p.real; pend+=p.pend; na+=p.na; });
     var apl=real+pend; pct=apl>0?Math.round(real/apl*100):0;
   }
   var t=document.getElementById('donutTitle'); if(t) t.textContent=titulo;
@@ -705,9 +711,120 @@ function showToast(msg){ var t=document.getElementById('toast'); t.textContent=m
 /* ====================== INIT ====================== */
 (function(){ syncDash(); renderStore(); })();
 
-/* NUBE: se activa cuando crees el proyecto Firebase nuevo (config + claves).
-   Por ahora guarda LOCAL en el navegador. */
-(function(){ var p=document.createElement('div'); p.className='pill'; p.style.background='#475569'; p.textContent='💾 Guardado local'; document.body.appendChild(p); })();
+/* ============================================================
+   SINCRONIZACION EN LA NUBE (Firebase) — estado de tiendas + historial
+   Login por clave (editor / solo lectura), tiempo real, roles.
+   ============================================================ */
+(function(){
+  var firebaseConfig = {
+    apiKey: "AIzaSyAXxdLUJPxXOH0G2Aw_iXjUjYb9jCpKOFc",
+    authDomain: "iris-e16b6.firebaseapp.com",
+    databaseURL: "https://iris-e16b6-default-rtdb.firebaseio.com",
+    projectId: "iris-e16b6",
+    storageBucket: "iris-e16b6.firebasestorage.app",
+    messagingSenderId: "729607744733",
+    appId: "1:729607744733:web:cc284126516081471bbf34"
+  };
+  var AUTH_EMAIL_EDITOR="equipo@iris.app", AUTH_EMAIL_READER="lector@iris.app";
+  var clientId=Math.random().toString(36).slice(2)+'_'+Date.now();
+  var applyingRemote=false, writeTimer=null, ref=null, pill=null, role='reader', lastRemoteJSON=null, loginBox=null, dbStarted=false;
+
+  function setStatus(s){
+    if(!pill) return;
+    if(s==='connected'){ pill.textContent='🟢 Sincronizado'; pill.style.background='#059669'; }
+    else if(s==='readonly'){ pill.textContent='👁️ Solo lectura'; pill.style.background='#2563eb'; }
+    else if(s==='connecting'){ pill.textContent='⏳ Conectando...'; pill.style.background='#d97706'; }
+    else if(s==='offline'){ pill.textContent='🟠 Sin conexión'; pill.style.background='#d97706'; }
+    else if(s==='error'){ pill.textContent='🔴 Error de sincronización'; pill.style.background='#dc2626'; }
+    else { pill.textContent='⚪ Sin conectar'; pill.style.background='#475569'; }
+  }
+  function makePill(){
+    pill=document.createElement('button'); pill.className='pill'; pill.style.cursor='pointer';
+    pill.title='Tocá para cerrar sesión / cambiar clave';
+    pill.onclick=confirmLogout;
+    document.body.appendChild(pill); setStatus('connecting');
+  }
+  function confirmLogout(){
+    if(!confirm('¿Cerrar sesión? Vas a tener que ingresar la clave de nuevo.')) return;
+    try{ localStorage.removeItem('mant_pw'); }catch(e){}
+    if(typeof firebase!=='undefined'&&firebase.auth){ firebase.auth().signOut().then(function(){location.reload();}).catch(function(){location.reload();}); }
+    else location.reload();
+  }
+
+  function serialize(){ return { v:1,_ts:Date.now(),_writer:clientId, state:state, historial:historial }; }
+  function applyData(o){
+    if(!o||typeof o!=='object') return;
+    applyingRemote=true;
+    if(o.state){ state=normalizeState(o.state); try{localStorage.setItem(STATE_KEY,JSON.stringify(state));}catch(e){} }
+    historial=toArray(o.historial); try{localStorage.setItem(HIST_KEY,JSON.stringify(historial));}catch(e){}
+    applyingRemote=false;
+    render(); if(typeof refreshChrome==='function') refreshChrome();
+  }
+  function pushData(){ if(!ref||applyingRemote) return; try{ ref.set(serialize()); }catch(e){ setStatus('error'); } }
+  function schedulePush(){ if(!ref) return; clearTimeout(writeTimer); writeTimer=setTimeout(pushData,300); }
+  function revertLocal(){ if(lastRemoteJSON){ try{ applyData(JSON.parse(lastRemoteJSON)); return; }catch(e){} } render(); }
+
+  ['saveState','saveHist'].forEach(function(name){
+    var orig=window[name]; if(typeof orig!=='function') return;
+    window[name]=function(){
+      var r=orig.apply(this,arguments);
+      if(applyingRemote) return r;
+      if(role==='reader'){ revertLocal(); if(typeof showToast==='function') showToast('Modo solo lectura: no podés editar'); return r; }
+      schedulePush(); return r;
+    };
+  });
+
+  function showLogin(){
+    if(loginBox||(firebase.auth().currentUser)) return;
+    loginBox=document.createElement('div');
+    loginBox.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,0.82);z-index:100000;display:flex;align-items:center;justify-content:center;padding:20px';
+    loginBox.innerHTML='<div style="background:#fff;border-radius:16px;padding:26px;max-width:340px;width:100%;font-family:Inter,sans-serif;box-shadow:0 10px 40px rgba(0,0,0,0.35)">'
+      +'<div style="font-weight:800;font-size:1.1rem;color:#1a1f2e;margin-bottom:6px">Mantenimiento - Krispy Kreme</div>'
+      +'<div style="font-size:0.85rem;color:#6b7280;margin-bottom:18px">Ingresá tu clave para entrar.</div>'
+      +'<input id="mpw" type="password" placeholder="Clave" autocomplete="current-password" style="width:100%;box-sizing:border-box;padding:12px;border:1px solid #e2e6ed;border-radius:10px;font-size:1rem;font-family:Inter,sans-serif;margin-bottom:10px">'
+      +'<div id="merr" style="color:#dc2626;font-size:0.8rem;margin-bottom:10px;display:none">Clave incorrecta. Probá de nuevo.</div>'
+      +'<button id="mbtn" style="width:100%;padding:12px;border:none;border-radius:10px;background:#00954c;color:#fff;font-weight:700;font-size:1rem;font-family:Inter,sans-serif;cursor:pointer">Entrar</button>'
+      +'</div>';
+    document.body.appendChild(loginBox);
+    var inp=loginBox.querySelector('#mpw'),btn=loginBox.querySelector('#mbtn'),err=loginBox.querySelector('#merr');
+    function attempt(){ var pw=inp.value; if(!pw) return; btn.textContent='Entrando...'; btn.disabled=true; err.style.display='none';
+      signIn(pw,function(){ btn.textContent='Entrar'; btn.disabled=false; err.style.display='block'; inp.value=''; inp.focus(); }); }
+    btn.onclick=attempt; inp.onkeydown=function(e){ if(e.key==='Enter') attempt(); };
+    setTimeout(function(){ inp.focus(); },100);
+  }
+  function hideLogin(){ if(loginBox&&loginBox.parentNode){ loginBox.parentNode.removeChild(loginBox); } loginBox=null; }
+  function signIn(pw,onErr){
+    firebase.auth().signInWithEmailAndPassword(AUTH_EMAIL_EDITOR,pw).then(function(){ try{localStorage.setItem('mant_pw',pw);}catch(e){} })
+    .catch(function(){ firebase.auth().signInWithEmailAndPassword(AUTH_EMAIL_READER,pw).then(function(){ try{localStorage.setItem('mant_pw',pw);}catch(e){} })
+      .catch(function(){ if(onErr) onErr(); }); });
+  }
+
+  function startDb(){
+    if(dbStarted) return; dbStarted=true;
+    try{ ref=firebase.database().ref('mant_data'); }catch(e){ setStatus('error'); return; }
+    firebase.database().ref('.info/connected').on('value',function(snap){
+      if(snap.val()===true){ setStatus(role==='reader'?'readonly':'connected'); } else setStatus('offline'); });
+    ref.on('value',function(snap){
+      setStatus(role==='reader'?'readonly':'connected'); // recibir datos = conectado y autorizado
+      var o=snap.val();
+      if(o===null){ if(role==='editor') pushData(); return; }
+      if(o._writer===clientId) return;
+      lastRemoteJSON=JSON.stringify(o); applyData(o);
+    }, function(){ setStatus('error'); });
+  }
+
+  function start(){
+    makePill();
+    if(typeof firebase==='undefined'){ setStatus('error'); pill.textContent='🔴 No cargó Firebase (revisá internet)'; return; }
+    try{ firebase.initializeApp(firebaseConfig); }catch(e){ setStatus('error'); return; }
+    firebase.auth().onAuthStateChanged(function(user){
+      if(user){ role=(user.email===AUTH_EMAIL_EDITOR)?'editor':'reader'; hideLogin(); startDb(); return; }
+      var saved=null; try{ saved=localStorage.getItem('mant_pw'); }catch(e){}
+      if(saved){ signIn(saved, showLogin); } else { showLogin(); }
+    });
+  }
+  start();
+})();
 </script>
 </body>
 </html>
