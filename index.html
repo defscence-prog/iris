@@ -665,7 +665,7 @@ function renderHistorial(){
     html+='<div style="font-size:0.85rem;color:var(--muted)">'+(hayFiltro?'No hay registros con esos filtros. Probá cambiar la tienda o las fechas.':'Todavía no hay registros. Registrá el mantenimiento de una tienda y aparece acá.')+'</div>';
   } else {
     html+='<div style="display:flex;gap:8px;margin-bottom:12px">'+
-      '<button class="mini-btn" style="background:var(--green);color:#fff;flex:1" onclick="exportarExcel()">📊 Exportar'+(hayFiltro?' filtrado':'')+' a Excel</button>'+
+      '<button class="mini-btn" style="background:var(--green);color:#fff;flex:1" onclick="exportarExcel()">📤 Exportar / Compartir'+(hayFiltro?' (filtrado)':'')+'</button>'+
       '<button class="mini-btn" style="background:var(--na-bg);color:var(--muted)" onclick="vaciarHistorial()">🗑 Vaciar</button>'+
     '</div>';
     html+='<div style="overflow-x:auto"><table class="hist-table"><thead><tr>'+
@@ -700,8 +700,26 @@ function exportarExcel(){
   ws['!cols']=[{wch:11},{wch:7},{wch:16},{wch:22},{wch:40},{wch:12},{wch:30}];
   var wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Historial');
-  XLSX.writeFile(wb,'Mantenimiento_KrispyKreme_'+new Date().toISOString().slice(0,10)+'.xlsx');
-  showToast('Excel exportado ✓');
+  var fname='Mantenimiento_KrispyKreme_'+new Date().toISOString().slice(0,10)+'.xlsx';
+  var out=XLSX.write(wb,{bookType:'xlsx',type:'array'});
+  var blob=new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  // En el celular: abrir el menú Compartir (mandar a Sheets/Drive/WhatsApp/mail).
+  try{
+    var file=new File([blob],fname,{type:blob.type});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      navigator.share({files:[file],title:'Historial de mantenimiento'})
+        .then(function(){ showToast('Compartido ✓'); })
+        .catch(function(){ descargarBlob(blob,fname); });
+      return;
+    }
+  }catch(e){}
+  descargarBlob(blob,fname);
+}
+function descargarBlob(blob,fname){
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a'); a.href=url; a.download=fname; document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(url); if(a.parentNode) a.parentNode.removeChild(a); },600);
+  showToast('Excel descargado ✓');
 }
 
 /* ====================== NAVEGACION ====================== */
