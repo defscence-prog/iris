@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -632,7 +632,13 @@ function histMatch(h){
   if(histF.to && (h.fecha||'')>histF.to) return false;
   return true;
 }
-function histFilteredEntries(){ return historial.filter(histMatch).slice().reverse(); }
+function histFilteredEntries(){
+  return historial.filter(histMatch).slice().sort(function(a,b){
+    var fa=a.fecha||'', fb=b.fecha||'';
+    if(fa!==fb) return fa<fb?1:-1;            // por fecha: la más nueva primero
+    return (''+a.id<''+b.id)?1:-1;            // misma fecha: por orden de registro
+  });
+}
 function setHistStore(v){ histF.store=v; renderHistorial(); }
 function setHistFrom(v){ histF.from=v; renderHistorial(); }
 function setHistTo(v){ histF.to=v; renderHistorial(); }
