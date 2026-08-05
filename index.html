@@ -1,4 +1,4 @@
-DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -672,7 +672,6 @@ function renderHistorial(){
   } else {
     html+='<div style="display:flex;gap:8px;margin-bottom:12px">'+
       '<button class="mini-btn" style="background:var(--green);color:#fff;flex:1" onclick="exportarExcel()">📤 Exportar / Compartir'+(hayFiltro?' (filtrado)':'')+'</button>'+
-      '<button class="mini-btn" style="background:var(--na-bg);color:var(--muted)" onclick="vaciarHistorial()">🗑 Vaciar</button>'+
     '</div>';
     html+='<div style="overflow-x:auto"><table class="hist-table"><thead><tr>'+
       '<th>Fecha</th><th>Tienda</th><th>Actividad</th><th>Estado</th></tr></thead><tbody>';
@@ -690,8 +689,14 @@ function renderHistorial(){
   document.getElementById('main').innerHTML=html;
 }
 function vaciarHistorial(){
-  if(!confirm('¿Vaciar TODO el historial? Esto no se puede deshacer.\n(Conviene exportar a Excel antes.)')) return;
+  var n=historial.length;
+  if(n===0){ showToast('El historial ya está vacío'); return; }
+  // Doble seguridad: hay que escribir BORRAR (un toque accidental no lo hace).
+  var t=prompt('⚠️ Esto BORRA los '+n+' registro(s) del historial de TODOS los dispositivos y NO se puede deshacer.\n\nSi estás seguro, escribí:  BORRAR');
+  if(t===null) return;
+  if(t.trim().toUpperCase()!=='BORRAR'){ showToast('Cancelado (no escribiste BORRAR)'); return; }
   historial=[]; saveHist(); renderHistorial();
+  showToast('Historial vaciado');
 }
 function exportarExcel(){
   if(typeof XLSX==='undefined'){ showToast('No cargó Excel (revisá internet)'); return; }
