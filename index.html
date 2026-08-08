@@ -32,7 +32,7 @@
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
-body{font-family:'Inter',sans-serif;background:linear-gradient(165deg,#e9f7ef 0%,#eef5fb 52%,#e7f0fb 100%) fixed;color:var(--text);padding-top:64px;padding-bottom:60px;line-height:1.45;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+body{font-family:'Inter',sans-serif;background:linear-gradient(158deg,#3fb98a 0%,#2f9fb0 50%,#3d7fd0 100%) fixed;color:var(--text);padding-top:64px;padding-bottom:60px;line-height:1.45;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
 ::selection{background:rgba(0,149,76,.16)}
 :focus-visible{outline:2px solid var(--green);outline-offset:2px;border-radius:6px}
 button:focus:not(:focus-visible),select:focus:not(:focus-visible),input:focus:not(:focus-visible){outline:none}
@@ -180,6 +180,20 @@ h1,.chart-title,.store-head h1,.modal-title{letter-spacing:-0.02em}
     .sb-list .sb-store{transform:none}
   }
 }
+/* ===== Efecto cristal (glass) en zonas de lucimiento ===== */
+.chart-card,.addbar,.empty{
+  background:rgba(255,255,255,.60);
+  backdrop-filter:blur(13px) saturate(150%);
+  -webkit-backdrop-filter:blur(13px) saturate(150%);
+  border:1px solid rgba(255,255,255,.6);
+  box-shadow:0 8px 26px rgba(16,40,80,.14);
+}
+.sidebar{
+  background:rgba(255,255,255,.72);
+  backdrop-filter:blur(18px) saturate(160%);
+  -webkit-backdrop-filter:blur(18px) saturate(160%);
+}
+.cat-title{color:rgba(255,255,255,.96);text-shadow:0 1px 3px rgba(0,40,30,.28)}
 </style>
 </head>
 <body>
@@ -552,7 +566,7 @@ function drawStoreChart(p){
     type:'doughnut',
     data:{labels:['Realizado','Pendiente','No aplica'],datasets:[{data:[p.real,p.pend,p.na],backgroundColor:['#3EC17E','#F5A25A','#cbd5e1'],borderColor:'#fff',borderWidth:2}]},
     options:{responsive:true,maintainAspectRatio:false,cutout:'78%',plugins:{legend:{position:'bottom',labels:{font:{family:'Inter',size:11}}}}},
-    plugins:[{id:'cs',afterDraw:function(c){var m=c.getDatasetMeta(0);if(!m||!m.data||!m.data[0])return;var x=m.data[0].x,y=m.data[0].y,ctx=c.ctx;ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#00954c';ctx.font='800 30px Inter,Arial,sans-serif';ctx.fillText(p.pct+'%',x,y-4);ctx.fillStyle='#6b7280';ctx.font='700 11px Inter,Arial,sans-serif';ctx.fillText('REALIZADO',x,y+18);ctx.restore();}}]
+    plugins:[{id:'cs',afterDraw:function(c){var m=c.getDatasetMeta(0);if(!m||!m.data||!m.data[0])return;var x=m.data[0].x,y=m.data[0].y,ctx=c.ctx;ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#2FA76A';ctx.font='800 30px Inter,Arial,sans-serif';ctx.fillText(p.pct+'%',x,y-4);ctx.fillStyle='#6b7280';ctx.font='700 11px Inter,Arial,sans-serif';ctx.fillText('REALIZADO',x,y+18);ctx.restore();}}]
   });
 }
 // Actualiza el % global de arriba y el menú (si está abierto) en vivo
@@ -624,7 +638,7 @@ function renderDashboard(){
   var rk='';
   rank.forEach(function(r){
     var w=Math.round(r.p.pend/maxP*100);
-    var col=r.p.pend===0?'var(--ok)':(r.p.pend>=6?'var(--red)':'var(--pend)');
+    var col=r.p.pend===0?'#3EC17E':(r.p.pend>=6?'var(--red)':'#F5A25A');
     rk+='<div class="rank-row"><div class="rank-name">'+r.name+'</div><div class="rank-bar-track"><div class="rank-bar" style="width:'+w+'%;background:'+col+'"></div></div><div class="rank-val" style="color:'+col+'">'+r.p.pend+' pend.</div></div>';
   });
   html+='<div class="chart-card"><div class="chart-title">Tiendas con más pendientes</div>'+rk+'</div>';
@@ -637,8 +651,8 @@ function renderDashboard(){
     var elS=document.getElementById('chStores');
     if(elS){ try{ window._ch.push(new Chart(elS,{type:'bar',
       data:{labels:per.map(function(r){return r.name;}),datasets:[
-        {label:'Realizadas',data:per.map(function(r){return r.p.real;}),backgroundColor:'#00954c'},
-        {label:'Pendientes',data:per.map(function(r){return r.p.pend;}),backgroundColor:'#f59e0b'}]},
+        {label:'Realizadas',data:per.map(function(r){return r.p.real;}),backgroundColor:'#3EC17E'},
+        {label:'Pendientes',data:per.map(function(r){return r.p.pend;}),backgroundColor:'#F5A25A'}]},
       options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
         onClick:function(evt,els){ if(els&&els.length){ var idx=els[0].index; if(STORES[idx]) selectDashStore(STORES[idx].id); } },
         onHover:function(evt,els){ evt.native.target.style.cursor=els.length?'pointer':'default'; },
@@ -666,7 +680,7 @@ function drawDashDonut(sid){
     type:'doughnut',
     data:{labels:['Realizadas','Pendientes','No aplica'],datasets:[{data:[real,pend,na],backgroundColor:['#3EC17E','#F5A25A','#cbd5e1'],borderColor:'#fff',borderWidth:2}]},
     options:{responsive:true,maintainAspectRatio:false,cutout:'78%',plugins:{legend:{position:'bottom',labels:{font:{family:'Inter',size:11}}}}},
-    plugins:[{id:'ctr',afterDraw:function(c){var m=c.getDatasetMeta(0);if(!m||!m.data||!m.data[0])return;var x=m.data[0].x,y=m.data[0].y,ctx=c.ctx;ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#00954c';ctx.font='800 34px Inter,Arial,sans-serif';ctx.fillText(pct+'%',x,y-6);ctx.fillStyle='#6b7280';ctx.font='700 10px Inter,Arial,sans-serif';ctx.fillText(centro,x,y+20);ctx.restore();}}]
+    plugins:[{id:'ctr',afterDraw:function(c){var m=c.getDatasetMeta(0);if(!m||!m.data||!m.data[0])return;var x=m.data[0].x,y=m.data[0].y,ctx=c.ctx;ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#2FA76A';ctx.font='800 34px Inter,Arial,sans-serif';ctx.fillText(pct+'%',x,y-6);ctx.fillStyle='#6b7280';ctx.font='700 10px Inter,Arial,sans-serif';ctx.fillText(centro,x,y+20);ctx.restore();}}]
   });
   window._ch.push(window._dashDonut);
 }
