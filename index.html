@@ -32,7 +32,7 @@
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
-body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);padding-top:64px;padding-bottom:60px;line-height:1.45;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+body{font-family:'Inter',sans-serif;background:linear-gradient(165deg,#e9f7ef 0%,#eef5fb 52%,#e7f0fb 100%) fixed;color:var(--text);padding-top:64px;padding-bottom:60px;line-height:1.45;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
 ::selection{background:rgba(0,149,76,.16)}
 :focus-visible{outline:2px solid var(--green);outline-offset:2px;border-radius:6px}
 button:focus:not(:focus-visible),select:focus:not(:focus-visible),input:focus:not(:focus-visible){outline:none}
@@ -550,8 +550,8 @@ function drawStoreChart(p){
   if(window._storeChart){ try{window._storeChart.destroy();}catch(e){} }
   window._storeChart=new Chart(el,{
     type:'doughnut',
-    data:{labels:['Realizado','Pendiente','No aplica'],datasets:[{data:[p.real,p.pend,p.na],backgroundColor:['#00954c','#f59e0b','#cbd5e1'],borderColor:'#fff',borderWidth:2}]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:'64%',plugins:{legend:{position:'bottom',labels:{font:{family:'Inter',size:11}}}}},
+    data:{labels:['Realizado','Pendiente','No aplica'],datasets:[{data:[p.real,p.pend,p.na],backgroundColor:['#3EC17E','#F5A25A','#cbd5e1'],borderColor:'#fff',borderWidth:2}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'78%',plugins:{legend:{position:'bottom',labels:{font:{family:'Inter',size:11}}}}},
     plugins:[{id:'cs',afterDraw:function(c){var m=c.getDatasetMeta(0);if(!m||!m.data||!m.data[0])return;var x=m.data[0].x,y=m.data[0].y,ctx=c.ctx;ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#00954c';ctx.font='800 30px Inter,Arial,sans-serif';ctx.fillText(p.pct+'%',x,y-4);ctx.fillStyle='#6b7280';ctx.font='700 11px Inter,Arial,sans-serif';ctx.fillText('REALIZADO',x,y+18);ctx.restore();}}]
   });
 }
@@ -664,8 +664,8 @@ function drawDashDonut(sid){
   if(window._dashDonut){ try{window._dashDonut.destroy();}catch(e){} }
   window._dashDonut=new Chart(el,{
     type:'doughnut',
-    data:{labels:['Realizadas','Pendientes','No aplica'],datasets:[{data:[real,pend,na],backgroundColor:['#00954c','#f59e0b','#cbd5e1'],borderColor:'#fff',borderWidth:2}]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:'66%',plugins:{legend:{position:'bottom',labels:{font:{family:'Inter',size:11}}}}},
+    data:{labels:['Realizadas','Pendientes','No aplica'],datasets:[{data:[real,pend,na],backgroundColor:['#3EC17E','#F5A25A','#cbd5e1'],borderColor:'#fff',borderWidth:2}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'78%',plugins:{legend:{position:'bottom',labels:{font:{family:'Inter',size:11}}}}},
     plugins:[{id:'ctr',afterDraw:function(c){var m=c.getDatasetMeta(0);if(!m||!m.data||!m.data[0])return;var x=m.data[0].x,y=m.data[0].y,ctx=c.ctx;ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#00954c';ctx.font='800 34px Inter,Arial,sans-serif';ctx.fillText(pct+'%',x,y-6);ctx.fillStyle='#6b7280';ctx.font='700 10px Inter,Arial,sans-serif';ctx.fillText(centro,x,y+20);ctx.restore();}}]
   });
   window._ch.push(window._dashDonut);
